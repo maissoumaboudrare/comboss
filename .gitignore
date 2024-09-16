@@ -1,0 +1,7 @@
+node_modules
+.env
+hash.ts
+.DS_Store
+src/trash
+src/db/save
+compose.yaml
