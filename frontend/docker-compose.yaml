@@ -1,0 +1,32 @@
+version: '3.9'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file: ".env.local"
+    depends_on:
+      - backend
+
+  backend:
+    image: comboss-bakend-backend
+    ports:
+      - "3010:3010"
+    env_file: ".env.local"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    env_file: ".env.local"
+    ports:
+      - "5432:5432"
+    restart: always
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
