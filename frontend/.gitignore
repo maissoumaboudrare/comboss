@@ -5,6 +5,7 @@
 /.pnp
 .pnp.js
 .yarn/install-state.gz
+notes.md
 
 # testing
 /coverage
@@ -36,7 +37,6 @@ yarn-error.log*
 next-env.d.ts
 
 # others
-note.md
 AddComboCopy.tsx
 HeartButton.tsx
 CombosListCopy.tsx
