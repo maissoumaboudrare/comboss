@@ -16,7 +16,7 @@ const app = new Hono();
 app.use(
   '/api/*',
   cors({
-    origin: 'http://localhost:3000',
+    origin: 'https://comboss.click',
     allowHeaders: ['X-Custom-Header', 'Upgrade-Insecure-Requests', 'Content-Type', 'Authorization'],
     allowMethods: ['POST', 'GET', 'PATCH', 'DELETE', 'OPTIONS'],
     exposeHeaders: ['Content-Length', 'X-Kuma-Revision'],

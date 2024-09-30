@@ -4,7 +4,7 @@ import * as authModel from '../models/auth.model';
 import * as crypto from 'crypto';
 
 const auth = new Hono();
-
+// TODO Middleware verif auth, track d'infos, rate limit, vérificateur
 auth.get('/status', async (c) => {
   try {
     const token = getCookie(c, 'session_token');
