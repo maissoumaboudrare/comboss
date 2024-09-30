@@ -16,7 +16,13 @@ const app = new Hono();
 app.use(
   '/api/*',
   cors({
-    origin: `${process.env.FRONT_REDIRECT_URL}`,
+    origin: (origin) => {
+      const allowedOrigins = [`${process.env.FRONT_REDIRECT_URL}`];
+      if (process.env.NODE_ENV === 'development') {
+        allowedOrigins.push('http://localhost:3000');
+      }
+      return allowedOrigins.includes(origin) ? origin : null;
+    },
     allowHeaders: ['X-Custom-Header', 'Upgrade-Insecure-Requests', 'Content-Type', 'Authorization'],
     allowMethods: ['POST', 'GET', 'PATCH', 'DELETE', 'OPTIONS'],
     exposeHeaders: ['Content-Length', 'X-Kuma-Revision'],
