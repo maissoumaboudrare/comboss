@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    env_file: ".env.local"
+    env_file: "./frontend/.env.local"
 
   backend:
     build:
@@ -13,11 +13,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3010:3010"
-    env_file: ".env"
 
   db:
     image: postgres:13
-    env_file: ".env"
+    env_file: "./backend/.env"
     ports:
       - "5432:5432"
     restart: always
