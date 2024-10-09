@@ -10,9 +10,36 @@ import {
   isValidUsername,
 } from "../utils/validation";
 
+import authMiddleware from "../middleware/auth";
+
+import { z } from "zod";
+
+const passwordValidation = new RegExp(
+  /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/
+);
+
+const userSchema = z.object({
+  email: z.string().email("Invalid email"),
+  password: z
+    .string()
+    .min(8, "Password requires at least 8 characters !")
+    .regex(passwordValidation, {
+      message:
+        "Password not valid! Add at least one uppercase letter, one lowercase letter, one number and one special character",
+    }),
+  pseudo: z
+    .string()
+    .min(2, {
+      message: "Username must be at least 2 characters.",
+    })
+    .max(10, {
+      message: "Username can't exceed 10 characters.",
+    }),
+});
+
 const users = new Hono();
 
-users.get("/", async (c) => {
+users.get("/", authMiddleware, async (c) => {
   try {
     const users = await model.getUsers();
     return c.json(users, 200);
@@ -22,7 +49,7 @@ users.get("/", async (c) => {
   }
 });
 
-users.get("/:userID", async (c) => {
+users.get("/:userID", authMiddleware, async (c) => {
   try {
     const userID = parseInt(c.req.param("userID"), 10);
     const user = await model.getUser(userID);
@@ -38,39 +65,43 @@ users.get("/:userID", async (c) => {
 });
 
 users.post("/", async (c) => {
-  const newUser = await c.req.json();
+  const inputFields = await c.req.json();
+  // const { success, data: newUser, error } = userSchema.safeParse(inputFields);
+  // if (!success) {
+  //   return c.json({ message: "Invalid user data format" }, 400);
+  // }
+  const newUser = userSchema.safeParse(inputFields);
 
-  if (
-    !isValidEmail(newUser.email) ||
-    !isValidPassword(newUser.password) ||
-    !isValidUsername(newUser.pseudo)
-  ) {
-    return c.json({ message: "Invalid user data format" }, 400);
+  if (!newUser.success) {
+    return c.json(
+      { message: "Invalid user data format", errors: newUser.error.errors },
+      400
+    );
   }
 
-  const addedUser = await model.createUser(newUser);
+  const addedUser = await model.createUser(newUser.data);
 
   return c.json(addedUser, 201);
 });
 
-// Login & Logout
 users.post("/login", async (c) => {
-  const credentials = await c.req.json();
+  const inputFields = await c.req.json();
+  const credentials = userSchema.safeParse(inputFields);
 
-  if (
-    !isValidEmail(credentials.email) ||
-    !isValidPassword(credentials.password)
-  ) {
-    return c.json({ message: "Invalid credentials format" }, 400);
+  if (!credentials.success) {
+    return c.json(
+      { message: "Invalid credentials format", errors: credentials.error.errors },
+      400
+    );
   }
 
   try {
-    const user = await model.authUser(credentials);
+    const user = await model.authUser(credentials.data);
 
     if (user) {
       const isCorrectPassword = await argon2.verify(
         user.password,
-        credentials.password
+        credentials.data.password
       );
 
       if (isCorrectPassword) {
@@ -116,33 +147,23 @@ users.post("/logout", async (c) => {
   }
 });
 
-users.patch("/:userID/password", async (c) => {
-  const token = getCookie(c, "session_token");
+users.patch("/:userID/password", authMiddleware, async (c) => {
+  const userIDFromParam = parseInt(c.req.param("userID"), 10);
 
-  if (!token) {
-    return c.json({ message: "User not authenticated" }, 401);
-  }
-
-  const session = await model.getSessionByToken(token);
-
-  if (!session || session.userID === null) {
-    return c.json({ message: "Invalid session" }, 401);
-  }
-
-  const userID = parseInt(c.req.param("userID"), 10);
+  const userIDFromSession = c.get("userID");
 
   const { oldPassword, newPassword } = await c.req.json();
 
-  if (isNaN(userID)) {
+  if (isNaN(userIDFromParam)) {
     return c.json({ message: "Invalid user ID" }, 400);
   }
 
-  if (session.userID !== userID) {
+  if (userIDFromSession !== userIDFromParam) {
     return c.json({ message: "Unauthorized access" }, 403);
   }
 
   try {
-    const user = await model.getUserPassword(userID);
+    const user = await model.getUserPassword(userIDFromParam);
     if (!user) return c.json({ message: "User not found" }, 404);
 
     const passwordMatch = await argon2.verify(user.password, oldPassword);
@@ -152,7 +173,7 @@ users.patch("/:userID/password", async (c) => {
 
     const hashedPassword = await argon2.hash(newPassword);
 
-    await model.updateUserPassword(userID, hashedPassword);
+    await model.updateUserPassword(userIDFromParam, hashedPassword);
 
     return c.json({ message: "Password updated successfully" });
   } catch (err) {
@@ -161,7 +182,7 @@ users.patch("/:userID/password", async (c) => {
   }
 });
 
-users.patch("/:userID/avatar", async (c) => {
+users.patch("/:userID/avatar", authMiddleware, async (c) => {
   const userID = parseInt(c.req.param("userID"), 10);
   const { avatarUrl } = await c.req.json();
 
@@ -178,7 +199,7 @@ users.patch("/:userID/avatar", async (c) => {
   }
 });
 
-users.delete("/:userID", async (c) => {
+users.delete("/:userID", authMiddleware, async (c) => {
   const userID = parseInt(c.req.param("userID"), 10);
 
   if (isNaN(userID)) {
@@ -193,18 +214,5 @@ users.delete("/:userID", async (c) => {
     return c.json({ message: "Failed to delete user" }, 500);
   }
 });
-
-// ! return c.json({ likeCount }, 200);
-// users.get("/combos/:comboID/likes", async (c) => {
-//   const comboID = parseInt(c.req.param("comboID"), 10);
-//   const likeCount = await model.getLikesByCombo(comboID);
-//   return c.json({ likeCount });
-// });
-
-// users.get("/:userID/favorites", async (c) => {
-//   const userID = parseInt(c.req.param("userID"), 10);
-//   const favorites = await model.getFavoritesByUser(userID);
-//   return c.json(favorites, 200);
-// });
 
 export default users;

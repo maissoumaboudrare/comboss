@@ -1,5 +1,24 @@
 import { Hono } from "hono";
 import * as model from "../models";
+import { z } from 'zod';
+
+import authMiddleware from '../middleware/auth';
+
+const characterSchema = z.object({
+  name: z.string().min(1, "Name is required."),
+  vitality: z.number().min(0, "Vitality must be a positive number."),
+  height: z.number().min(0, "Height must be a positive number."),
+  weight: z.number().min(0, "Weight must be a positive number."),
+  story: z.string().min(1, "Story is required."),
+  type: z.string().min(1, "Type is required."),
+  effectiveRange: z.string().min(1, "Effective range is required."),
+  easeOfUse: z.string().min(1, "Ease of use is required."),
+  avatar: z.string().url("Invalid URL for avatar."),
+  thumbnail: z.string().url("Invalid URL for thumbnail."),
+  numberOfCombos: z.number().nonnegative("Number of combos must be zero or greater."),
+  numberOfLikes: z.number().nonnegative("Number of likes must be zero or greater."),
+  numberOfLovers: z.number().nonnegative("Number of lovers must be zero or greater."),
+});
 
 const characters = new Hono();
 
@@ -27,10 +46,15 @@ characters.get("/:characterID", async (c) => {
   }
 });
 
-characters.post("/", async (c) => {
+characters.post("/", authMiddleware, async (c) => {
   try {
     const newCharacter = await c.req.json();
-    const addedCharacter = await model.addCharacter(newCharacter);
+    const parsedCharacter = characterSchema.safeParse(newCharacter);
+
+    if (!parsedCharacter.success) {
+      return c.json({ message: "Invalid character data format", errors: parsedCharacter.error.errors }, 400);
+    }
+    const addedCharacter = await model.addCharacter(parsedCharacter.data);
     return c.json(addedCharacter, 201);
   } catch (err) {
     console.error("Error adding character:", err);
@@ -38,7 +62,7 @@ characters.post("/", async (c) => {
   }
 });
 
-characters.delete("/:characterID", async (c) => {
+characters.delete("/:characterID", authMiddleware, async (c) => {
   try {
     const characterID = parseInt(c.req.param("characterID"), 10);
     await model.deleteCharacter(characterID);
@@ -49,7 +73,7 @@ characters.delete("/:characterID", async (c) => {
   }
 });
 
-characters.patch("/:characterID", async (c) => {
+characters.patch("/:characterID", authMiddleware, async (c) => {
   try {
     const characterID = parseInt(c.req.param("characterID"), 10);
     const updatedData = await c.req.json();

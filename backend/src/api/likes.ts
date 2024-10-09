@@ -2,46 +2,43 @@ import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import * as model from "../models";
 
+import { z } from 'zod';
+
+import authMiddleware from '../middleware/auth';
+
+const likeSchema = z.object({
+  comboID: z.number().min(1, "Combo ID must be a positive integer."),
+});
+
 const likes = new Hono();
 
-likes.post("/:comboID", async (c) => {
+likes.post("/:comboID", authMiddleware, async (c) => {
   const comboID = parseInt(c.req.param("comboID"), 10);
-  const token = getCookie(c, "session_token");
-
-  if (!token) {
-    return c.json({ message: "User not authenticated" }, 401);
+  const userID = c.get("userID") as number;
+  const parsedLike = likeSchema.safeParse({ comboID });
+  if (!parsedLike.success) {
+    return c.json({ message: "Invalid like data format", errors: parsedLike.error.errors }, 400);
   }
 
-  const session = await model.getSessionByToken(token);
-
-  if (!session || session.userID === null) {
-    return c.json({ message: "Invalid session" }, 401);
-  }
-
-  const userID = session.userID;
-  const newLike = await model.addLike(userID, comboID);
+  const newLike = await model.addLike(userID, parsedLike.data.comboID);
 
   return c.json(newLike, 201);
 });
 
-likes.delete("/:comboID", async (c) => {
+likes.delete("/:comboID", authMiddleware, async (c) => {
   const comboID = parseInt(c.req.param("comboID"), 10);
-  const token = getCookie(c, "session_token");
+  const userID = c.get("userID") as number;
 
-  if (!token) {
-    return c.json({ message: "User not authenticated" }, 401);
+  const parsedLike = likeSchema.safeParse({ comboID });
+  if (!parsedLike.success) {
+    return c.json({ message: "Invalid like data format", errors: parsedLike.error.errors }, 400);
   }
 
-  const session = await model.getSessionByToken(token);
-  if (!session || session.userID === null) {
-    return c.json({ message: "Invalid session" }, 401);
-  }
-
-  await model.deleteLike(session.userID, comboID);
+  await model.deleteLike(userID, parsedLike.data.comboID);
   return c.json({ message: "Like deleted successfully" }, 200);
 });
 
-likes.get("/combo/:comboID", async (c) => {
+likes.get("/combo/:comboID", authMiddleware, async (c) => {
   const comboID = parseInt(c.req.param("comboID"), 10);
   const likeCount = await model.getLikesByCombo(comboID);
 

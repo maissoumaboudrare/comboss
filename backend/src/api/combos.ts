@@ -1,6 +1,29 @@
 import { Hono } from "hono";
 import * as model from "../models";
 import { getCookie } from "hono/cookie";
+import { z } from "zod";
+
+import authMiddleware from "../middleware/auth";
+
+const inputSchema = z.object({
+  inputName: z.string().min(1, "Input name is required."),
+  inputSrc: z.string().url("Invalid URL for input source."),
+});
+
+const positionSchema = z.object({
+  positionName: z.string().min(1, "Position name is required."),
+});
+
+const comboSchema = z.object({
+  characterID: z.number().min(1, "Character ID must be a positive integer."),
+  comboName: z.string().min(1, "Combo name is required."),
+});
+
+const comboDataSchema = z.object({
+  combo: comboSchema,
+  positions: z.array(positionSchema),
+  inputs: z.array(z.array(inputSchema)),
+});
 
 const combos = new Hono();
 
@@ -27,7 +50,10 @@ combos.get("/character/:characterID", async (c) => {
       }
     }
 
-    const characterCombos = await model.getCombosByCharacter(characterID, userID);
+    const characterCombos = await model.getCombosByCharacter(
+      characterID,
+      userID
+    );
     return c.json(characterCombos, 200);
   } catch (err) {
     console.error("Error fetching character combos:", err);
@@ -46,23 +72,25 @@ combos.get("/user/:userID", async (c) => {
   }
 });
 
-combos.post("/", async (c) => {
+combos.post("/", authMiddleware, async (c) => {
   try {
-    const token = getCookie(c, "session_token");
-
-    if (!token) {
-      return c.json({ message: "User not authenticated" }, 401);
+    const inputData = await c.req.json();
+    const parsedData = comboDataSchema.safeParse(inputData);
+    if (!parsedData.success) {
+      return c.json(
+        {
+          message: "Invalid combo data format",
+          errors: parsedData.error.errors,
+        },
+        400
+      );
     }
-
-    const session = await model.getSessionByToken(token);
-
-    if (!session || session.userID === null) {
-      return c.json({ message: "Invalid session" }, 401);
-    }
-
-    const { combo, positions, inputs } = await c.req.json();
-
-    const addedCombo = await model.addCombo({ ...combo, userID: session.userID}, positions, inputs);
+    const userID = c.get("userID");
+    const addedCombo = await model.addCombo(
+      { ...parsedData.data.combo, userID },
+      parsedData.data.positions,
+      parsedData.data.inputs
+    );
     return c.json(addedCombo, 201);
   } catch (err) {
     console.error("Error adding combo:", err);
@@ -70,21 +98,11 @@ combos.post("/", async (c) => {
   }
 });
 
-combos.delete("/:comboID", async (c) => {
+combos.delete("/:comboID", authMiddleware, async (c) => {
   try {
-    const token = getCookie(c, "session_token");
-    
-    if (!token) {
-      return c.json({ message: "User not authenticated" }, 401);
-    }
-
-    const session = await model.getSessionByToken(token);
-    if (!session || session.userID === null) {
-      return c.json({ message: "Invalid session" }, 401);
-    }
-
     const comboID = parseInt(c.req.param("comboID"), 10);
-    await model.deleteCombo(comboID, session.userID);
+    const userID = c.get("userID") as number;
+    await model.deleteCombo(comboID, userID);
     return c.json({ message: "Combo deleted" }, 200);
   } catch (err) {
     console.error("Error deleting combo:", err);

@@ -1,5 +1,13 @@
 import { Hono } from "hono";
 import * as model from "../models";
+import { z } from 'zod';
+
+import authMiddleware from "../middleware/auth";
+
+const inputSchema = z.object({
+  inputName: z.string().min(1, "Input name is required."),
+  inputSrc: z.string().url("Invalid URL for input source."),
+});
 
 const inputs = new Hono();
 
@@ -13,10 +21,20 @@ inputs.get("/", async (c) => {
   }
 });
 
-inputs.post("/", async (c) => {
+inputs.post("/", authMiddleware, async (c) => {
+
   try {
     const newInput = await c.req.json();
-    const addedInput = await model.addInput(newInput);
+    const parsedInput = inputSchema.safeParse(newInput);
+
+    if (!parsedInput.success) {
+      return c.json(
+        { message: "Invalid input data format", errors: parsedInput.error.errors },
+        400
+      );
+    }
+
+    const addedInput = await model.addInput(parsedInput.data);
     return c.json(addedInput, 201);
   } catch (err) {
     console.error("Error adding input:", err);
@@ -24,7 +42,7 @@ inputs.post("/", async (c) => {
   }
 });
 
-inputs.delete("/:inputID", async (c) => {
+inputs.delete("/:inputID", authMiddleware, async (c) => {
   try {
     const inputID = parseInt(c.req.param("inputID"), 10);
     await model.deleteInput(inputID);
@@ -35,11 +53,20 @@ inputs.delete("/:inputID", async (c) => {
   }
 });
 
-inputs.patch("/:inputID", async (c) => {
+inputs.patch("/:inputID", authMiddleware, async (c) => {
   try {
     const inputID = parseInt(c.req.param("inputID"), 10);
     const updatedData = await c.req.json();
-    const updatedInput = await model.updateInput(inputID, updatedData);
+    const parsedInput = inputSchema.safeParse(updatedData);
+
+    if (!parsedInput.success) {
+      return c.json(
+        { message: "Invalid input data format", errors: parsedInput.error.errors },
+        400
+      );
+    }
+
+    const updatedInput = await model.updateInput(inputID, parsedInput.data);
     return c.json(updatedInput, 200);
   } catch (err) {
     console.error("Error updating input:", err);

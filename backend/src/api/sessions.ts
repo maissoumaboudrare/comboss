@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import * as model from "../models";
 
+import authMiddleware from '../middleware/auth';
+
 const sessions = new Hono();
 
-sessions.get("/", async (c) => {
+sessions.get("/", authMiddleware, async (c) => {
   try {
     const allSessions = await model.getSessions();
     return c.json(allSessions, 200);
@@ -13,7 +15,7 @@ sessions.get("/", async (c) => {
   }
 });
 
-sessions.delete("/:userID", async (c) => {
+sessions.delete("/:userID", authMiddleware, async (c) => {
   try {
     const userID = parseInt(c.req.param("userID"), 10);
     if (isNaN(userID)) {

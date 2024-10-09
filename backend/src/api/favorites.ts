@@ -1,43 +1,39 @@
 import { Hono } from "hono";
-import { getCookie } from "hono/cookie";
 import * as model from "../models";
+
+import { z } from 'zod';
+
+import authMiddleware from '../middleware/auth';
+
+const favoriteSchema = z.object({
+  comboID: z.number().min(1, "Combo ID must be a positive integer."),
+});
 
 const favorites = new Hono();
 
-favorites.post("/:comboID", async (c) => {
+favorites.post("/:comboID", authMiddleware, async (c) => {
   const comboID = parseInt(c.req.param("comboID"), 10);
-  const token = getCookie(c, "session_token");
-
-  if (!token) {
-    return c.json({ message: "User not authenticated" }, 401);
+  const userID = c.get("userID") as number;
+  const parsedFavorite = favoriteSchema.safeParse({ comboID });
+  if (!parsedFavorite.success) {
+    return c.json({ message: "Invalid favorite data format", errors: parsedFavorite.error.errors }, 400);
   }
 
-  const session = await model.getSessionByToken(token);
-
-  if (!session || session.userID === null) {
-    return c.json({ message: "Invalid session" }, 401);
-  }
-
-  const userID = session.userID;
-  const newFavorite = await model.addFavorite(userID, comboID);
+  const newFavorite = await model.addFavorite(userID, parsedFavorite.data.comboID);
 
   return c.json(newFavorite, 201);
 });
 
-favorites.delete("/:comboID", async (c) => {
+favorites.delete("/:comboID", authMiddleware, async (c) => {
   const comboID = parseInt(c.req.param("comboID"), 10);
-  const token = getCookie(c, "session_token");
+  const userID = c.get("userID") as number;
 
-  if (!token) {
-    return c.json({ message: "User not authenticated" }, 401);
+  const parsedFavorite = favoriteSchema.safeParse({ comboID });
+  if (!parsedFavorite.success) {
+    return c.json({ message: "Invalid favorite data format", errors: parsedFavorite.error.errors }, 400);
   }
 
-  const session = await model.getSessionByToken(token);
-  if (!session || session.userID === null) {
-    return c.json({ message: "Invalid session" }, 401);
-  }
-
-  await model.deleteFavorite(session.userID, comboID);
+  await model.deleteFavorite(userID, parsedFavorite.data.comboID);
   return c.json({ message: "Favorite deleted successfully" }, 200);
 });
 
