@@ -4,7 +4,7 @@ import { InsertUser } from "../db/schema";
 import { sql } from "drizzle-orm";
 import * as argon2 from "argon2";
 
-type UserSummary = { userID: number; pseudo: string; email: string; avatar: string | null};
+type UserSummary = { userID: number; pseudo: string; email: string; avatar: string | null; role: string};
 
 export const getUsers = async (): Promise<UserSummary[]> => {
   const users = await db
@@ -13,6 +13,7 @@ export const getUsers = async (): Promise<UserSummary[]> => {
       pseudo: schema.users.pseudo,
       email: schema.users.email,
       avatar: schema.users.avatar,
+      role: schema.users.role,
     })
     .from(schema.users);
 
@@ -26,6 +27,7 @@ export const getUser = async (userID: number): Promise<UserSummary | null> => {
       pseudo: schema.users.pseudo,
       email: schema.users.email,
       avatar: schema.users.avatar,
+      role: schema.users.role,
     })
     .from(schema.users)
     .where(sql`${schema.users.userID} = ${userID}`)
@@ -54,8 +56,8 @@ export const createUser = async (
     throw new Error("Failed to insert user or invalid return value");
   }
 
-  const { userID, pseudo, email, avatar } = addedUser[0];
-  return { userID, pseudo, email, avatar };
+  const { userID, pseudo, email, avatar, role } = addedUser[0];
+  return { userID, pseudo, email, avatar, role };
 };
 
 export const authUser = async (user: Omit<InsertUser, "id" | "createdAt">) => {

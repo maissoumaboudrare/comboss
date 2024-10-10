@@ -3,6 +3,7 @@ import * as model from "../models";
 import { z } from 'zod';
 
 import authMiddleware from '../middleware/auth';
+import rolesMiddleware from "../middleware/role";
 
 const characterSchema = z.object({
   name: z.string().min(1, "Name is required."),
@@ -46,7 +47,7 @@ characters.get("/:characterID", async (c) => {
   }
 });
 
-characters.post("/", authMiddleware, async (c) => {
+characters.post("/", authMiddleware, rolesMiddleware(['admin']), async (c) => {
   try {
     const newCharacter = await c.req.json();
     const parsedCharacter = characterSchema.safeParse(newCharacter);
@@ -62,7 +63,7 @@ characters.post("/", authMiddleware, async (c) => {
   }
 });
 
-characters.delete("/:characterID", authMiddleware, async (c) => {
+characters.delete("/:characterID", authMiddleware, rolesMiddleware(['admin']), async (c) => {
   try {
     const characterID = parseInt(c.req.param("characterID"), 10);
     await model.deleteCharacter(characterID);
@@ -73,7 +74,7 @@ characters.delete("/:characterID", authMiddleware, async (c) => {
   }
 });
 
-characters.patch("/:characterID", authMiddleware, async (c) => {
+characters.patch("/:characterID", authMiddleware, rolesMiddleware(['admin']), async (c) => {
   try {
     const characterID = parseInt(c.req.param("characterID"), 10);
     const updatedData = await c.req.json();

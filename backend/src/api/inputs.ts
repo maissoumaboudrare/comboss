@@ -3,6 +3,7 @@ import * as model from "../models";
 import { z } from 'zod';
 
 import authMiddleware from "../middleware/auth";
+import rolesMiddleware from "../middleware/role";
 
 const inputSchema = z.object({
   inputName: z.string().min(1, "Input name is required."),
@@ -21,7 +22,7 @@ inputs.get("/", async (c) => {
   }
 });
 
-inputs.post("/", authMiddleware, async (c) => {
+inputs.post("/", authMiddleware, rolesMiddleware(['admin']), async (c) => {
 
   try {
     const newInput = await c.req.json();
@@ -42,7 +43,7 @@ inputs.post("/", authMiddleware, async (c) => {
   }
 });
 
-inputs.delete("/:inputID", authMiddleware, async (c) => {
+inputs.delete("/:inputID", authMiddleware, rolesMiddleware(['admin']), async (c) => {
   try {
     const inputID = parseInt(c.req.param("inputID"), 10);
     await model.deleteInput(inputID);
@@ -53,7 +54,7 @@ inputs.delete("/:inputID", authMiddleware, async (c) => {
   }
 });
 
-inputs.patch("/:inputID", authMiddleware, async (c) => {
+inputs.patch("/:inputID", authMiddleware, rolesMiddleware(['admin']), async (c) => {
   try {
     const inputID = parseInt(c.req.param("inputID"), 10);
     const updatedData = await c.req.json();

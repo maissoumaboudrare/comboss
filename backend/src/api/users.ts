@@ -4,42 +4,43 @@ import * as model from "../models";
 import * as argon2 from "argon2";
 import * as crypto from "crypto";
 
-import {
-  isValidEmail,
-  isValidPassword,
-  isValidUsername,
-} from "../utils/validation";
-
 import authMiddleware from "../middleware/auth";
 
 import { z } from "zod";
+import rolesMiddleware from "../middleware/role";
 
-const passwordValidation = new RegExp(
-  /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$/
+const emailValidation = new RegExp(
+  /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,4}$/
 );
 
 const userSchema = z.object({
-  email: z.string().email("Invalid email"),
+  email: z
+    .string()
+    .regex(emailValidation, {
+      message: "Invalid email format.",
+    }),
   password: z
     .string()
     .min(8, "Password requires at least 8 characters !")
-    .regex(passwordValidation, {
-      message:
-        "Password not valid! Add at least one uppercase letter, one lowercase letter, one number and one special character",
-    }),
-  pseudo: z
+    .regex(/[0-9]/, { message: "Password must contain at least one number." })
+    .regex(/[A-Z]/, { message: "Password must contain at least one uppercase letter." })
+    .regex(/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]+/, { message: "Password must contain at least one special character." }),
+    pseudo: z
     .string()
     .min(2, {
       message: "Username must be at least 2 characters.",
     })
-    .max(10, {
-      message: "Username can't exceed 10 characters.",
+    .max(8, {
+      message: "Username can't exceed 8 characters.",
+    })
+    .regex(/^[a-z0-9]+$/, {
+      message: "Username can only contain lowercase letters and numbers.",
     }),
 });
 
 const users = new Hono();
 
-users.get("/", authMiddleware, async (c) => {
+users.get("/", authMiddleware, rolesMiddleware(['admin']), async (c) => {
   try {
     const users = await model.getUsers();
     return c.json(users, 200);
@@ -49,7 +50,7 @@ users.get("/", authMiddleware, async (c) => {
   }
 });
 
-users.get("/:userID", authMiddleware, async (c) => {
+users.get("/:userID", authMiddleware, rolesMiddleware(['admin']), async (c) => {
   try {
     const userID = parseInt(c.req.param("userID"), 10);
     const user = await model.getUser(userID);
@@ -147,7 +148,7 @@ users.post("/logout", async (c) => {
   }
 });
 
-users.patch("/:userID/password", authMiddleware, async (c) => {
+users.patch("/:userID/password", authMiddleware, rolesMiddleware(['admin', 'visitor']), async (c) => {
   const userIDFromParam = parseInt(c.req.param("userID"), 10);
 
   const userIDFromSession = c.get("userID");
@@ -182,7 +183,7 @@ users.patch("/:userID/password", authMiddleware, async (c) => {
   }
 });
 
-users.patch("/:userID/avatar", authMiddleware, async (c) => {
+users.patch("/:userID/avatar", authMiddleware, rolesMiddleware(['admin', 'visitor']), async (c) => {
   const userID = parseInt(c.req.param("userID"), 10);
   const { avatarUrl } = await c.req.json();
 
@@ -199,7 +200,7 @@ users.patch("/:userID/avatar", authMiddleware, async (c) => {
   }
 });
 
-users.delete("/:userID", authMiddleware, async (c) => {
+users.delete("/:userID", authMiddleware, rolesMiddleware(['admin', 'visitor']), async (c) => {
   const userID = parseInt(c.req.param("userID"), 10);
 
   if (isNaN(userID)) {

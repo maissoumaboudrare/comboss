@@ -4,6 +4,7 @@ import * as model from "../models";
 import { z } from 'zod';
 
 import authMiddleware from '../middleware/auth';
+import rolesMiddleware from "../middleware/role";
 
 const favoriteSchema = z.object({
   comboID: z.number().min(1, "Combo ID must be a positive integer."),
@@ -11,7 +12,7 @@ const favoriteSchema = z.object({
 
 const favorites = new Hono();
 
-favorites.post("/:comboID", authMiddleware, async (c) => {
+favorites.post("/:comboID", authMiddleware, rolesMiddleware(['admin', 'visitor']), async (c) => {
   const comboID = parseInt(c.req.param("comboID"), 10);
   const userID = c.get("userID") as number;
   const parsedFavorite = favoriteSchema.safeParse({ comboID });
@@ -24,7 +25,7 @@ favorites.post("/:comboID", authMiddleware, async (c) => {
   return c.json(newFavorite, 201);
 });
 
-favorites.delete("/:comboID", authMiddleware, async (c) => {
+favorites.delete("/:comboID", authMiddleware, rolesMiddleware(['admin', 'visitor']), async (c) => {
   const comboID = parseInt(c.req.param("comboID"), 10);
   const userID = c.get("userID") as number;
 
@@ -37,7 +38,7 @@ favorites.delete("/:comboID", authMiddleware, async (c) => {
   return c.json({ message: "Favorite deleted successfully" }, 200);
 });
 
-favorites.get("/user/:userID", async (c) => {
+favorites.get("/user/:userID", authMiddleware, rolesMiddleware(['admin', 'visitor']), async (c) => {
   const userID = parseInt(c.req.param("userID"), 10);
   const favorites = await model.getFavoritesByUser(userID);
 

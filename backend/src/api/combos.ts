@@ -4,6 +4,7 @@ import { getCookie } from "hono/cookie";
 import { z } from "zod";
 
 import authMiddleware from "../middleware/auth";
+import rolesMiddleware from "../middleware/role";
 
 const inputSchema = z.object({
   inputName: z.string().min(1, "Input name is required."),
@@ -72,7 +73,7 @@ combos.get("/user/:userID", async (c) => {
   }
 });
 
-combos.post("/", authMiddleware, async (c) => {
+combos.post("/", authMiddleware, rolesMiddleware(['admin', 'visitor']), async (c) => {
   try {
     const inputData = await c.req.json();
     const parsedData = comboDataSchema.safeParse(inputData);
@@ -98,7 +99,7 @@ combos.post("/", authMiddleware, async (c) => {
   }
 });
 
-combos.delete("/:comboID", authMiddleware, async (c) => {
+combos.delete("/:comboID", authMiddleware, rolesMiddleware(['admin', 'visitor']), async (c) => {
   try {
     const comboID = parseInt(c.req.param("comboID"), 10);
     const userID = c.get("userID") as number;

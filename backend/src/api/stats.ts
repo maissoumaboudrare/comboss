@@ -1,11 +1,9 @@
 import { Hono } from 'hono';
 import { getCharacterStats } from '../models/stat.model';
 
-import authMiddleware from '../middleware/auth';
-
 const stats = new Hono();
 
-stats.get('/:characterID', authMiddleware, async (c) => {
+stats.get('/:characterID', async (c) => {
   const characterID = parseInt(c.req.param("characterID"), 10);
   if (!characterID) {
     return c.json({ error: 'Character ID is required' }, 400);

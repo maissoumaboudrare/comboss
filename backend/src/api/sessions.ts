@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import * as model from "../models";
 
 import authMiddleware from '../middleware/auth';
+import rolesMiddleware from "../middleware/role";
 
 const sessions = new Hono();
 
@@ -15,7 +16,7 @@ sessions.get("/", authMiddleware, async (c) => {
   }
 });
 
-sessions.delete("/:userID", authMiddleware, async (c) => {
+sessions.delete("/:userID", authMiddleware, rolesMiddleware(['admin', 'visitor']), async (c) => {
   try {
     const userID = parseInt(c.req.param("userID"), 10);
     if (isNaN(userID)) {

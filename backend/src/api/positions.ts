@@ -3,6 +3,7 @@ import * as model from "../models";
 import { z } from 'zod';
 
 import authMiddleware from '../middleware/auth';
+import rolesMiddleware from "../middleware/role";
 
 const positionSchema = z.object({
   positionName: z.string().min(1, "Position name is required."),
@@ -20,7 +21,7 @@ positions.get("/", async (c) => {
   }
 });
 
-positions.post("/", authMiddleware, async (c) => {
+positions.post("/", authMiddleware, rolesMiddleware(['admin']), async (c) => {
   try {
     const newPosition = await c.req.json();
     const parsedPosition = positionSchema.safeParse(newPosition);
@@ -40,7 +41,7 @@ positions.post("/", authMiddleware, async (c) => {
   }
 });
 
-positions.delete("/:positionID", authMiddleware, async (c) => {
+positions.delete("/:positionID", authMiddleware, rolesMiddleware(['admin']), async (c) => {
   try {
     const positionID = parseInt(c.req.param("positionID"), 10);
     await model.deletePosition(positionID);
@@ -51,7 +52,7 @@ positions.delete("/:positionID", authMiddleware, async (c) => {
   }
 });
 
-positions.patch("/:positionID", authMiddleware, async (c) => {
+positions.patch("/:positionID", authMiddleware, rolesMiddleware(['admin']), async (c) => {
   try {
     const positionID = parseInt(c.req.param("positionID"), 10);
     const updatedData = await c.req.json();
